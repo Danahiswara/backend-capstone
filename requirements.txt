@@ -12,3 +12,4 @@ passlib[argon2]==1.7.4
 bcrypt==5.0.0
 httpx==0.28.1
 supabase==2.28.0
+apscheduler==3.11.2
