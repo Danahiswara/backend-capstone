@@ -11,6 +11,7 @@ from app.api import incoming
 from app.api import dashboard
 from app.api import outgoing
 from app.api import admin
+from app.api import cron
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -91,3 +92,8 @@ app.include_router(dashboard.router)
 # Admin
 # =========================
 app.include_router(admin.router)
+
+# =========================
+# Cron
+# =========================
+app.include_router(cron.router)
