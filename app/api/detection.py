@@ -21,6 +21,7 @@ router = APIRouter(prefix="/detection", tags=["Detection"])
 @router.post("/{item_id}")
 def run_detection(
     item_id: int,
+    type_id: int,  # 🔥 dari user (QUERY PARAM / FORM)
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -36,7 +37,17 @@ def run_detection(
         raise HTTPException(404, "Item not found")
 
     # ======================
-    # CEK SUDAH ADA DETEKSI
+    # VALIDASI TYPE (PENTING)
+    # ======================
+    type_data = db.query(Type).filter(
+        Type.type_id == type_id
+    ).first()
+
+    if not type_data:
+        raise HTTPException(404, "Type not found")
+
+    # ======================
+    # CEK DUPLIKAT DETEKSI
     # ======================
     existing = db.query(Detection).filter(
         Detection.item_id == item_id
@@ -46,20 +57,17 @@ def run_detection(
         raise HTTPException(400, "Item already detected")
 
     # ======================
-    # CALL AI SERVICE
+    # CALL AI
     # ======================
     result = detect_objects(item.image_path)
 
     if not result:
         raise HTTPException(500, "AI service error")
 
-    # ======================
-    # AMBIL DATA DETEKSI
-    # ======================
     detections = result.get("detections", [])
 
     # ======================
-    # OBJECT COUNT (FIX)
+    # OBJECT COUNT
     # ======================
     object_count = result.get("total_detections") \
         or result.get("counts", {}).get("total", 0)
@@ -69,57 +77,35 @@ def run_detection(
     # ======================
     if detections:
         confidences = [d.get("confidence", 0) for d in detections]
-        avg_confidence = sum(confidences) / len(confidences)
+        avg_conf = sum(confidences) / len(confidences)
     else:
-        avg_confidence = 0
+        avg_conf = 0
 
     # ======================
-    # TYPE DARI USER (ITEM)
+    # GENERATE MASK
     # ======================
-    type_data = db.query(Type).filter(
-        Type.type_id == Detection.type_id
-    ).first()
+    overlay = generate_mask_overlay(
+        item.image_path,
+        detections
+    )
 
-    if not type_data:
-        raise HTTPException(400, "Type not found")
-
-    # ======================
-    # GENERATE MASK OVERLAY
-    # ======================
-    try:
-        overlay_image = generate_mask_overlay(
-            item.image_path,
-            detections
-        )
-    except Exception as e:
-        raise HTTPException(500, f"Mask generation failed: {str(e)}")
+    mask_url = upload_mask_image(overlay)
 
     # ======================
-    # UPLOAD KE SUPABASE
-    # ======================
-    try:
-        mask_url = upload_mask_image(overlay_image)
-    except Exception as e:
-        raise HTTPException(500, f"Upload failed: {str(e)}")
-
-    # ======================
-    # SAVE KE DATABASE
+    # SAVE
     # ======================
     detection = save_detection(
         db=db,
         item_id=item_id,
-        type_id=type_data.type_id,
+        type_id=type_id,  # 🔥 dari user
         mask_path=mask_url,
         object_count=int(object_count),
-        confidence_score=float(avg_confidence)
+        confidence_score=float(avg_conf)
     )
 
-    # ======================
-    # RESPONSE
-    # ======================
     return {
         "item_id": item_id,
-        "type": type_data.name,
+        "type_id": detection.type_id,
         "count": detection.object_count,
         "confidence_score": round(detection.confidence_score, 4),
         "mask_url": detection.mask_path
