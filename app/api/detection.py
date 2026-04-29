@@ -76,7 +76,7 @@ def run_detection(
     # ======================
     # TYPE DARI USER (ITEM)
     # ======================
-    type_data = get_type_by_name(db, item.type_id)
+    type_data = get_type_by_name(db, Type.type_id)
 
     if not type_data:
         raise HTTPException(400, "Type not found")
