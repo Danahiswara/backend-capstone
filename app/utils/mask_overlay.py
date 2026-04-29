@@ -5,10 +5,25 @@ from PIL import Image
 from io import BytesIO
 
 
+def resize_like_model(image: Image.Image, max_size=800):
+    W, H = image.size
+    longest = max(W, H)
+
+    if longest <= max_size:
+        return image
+
+    scale = max_size / longest
+    new_w = int(W * scale)
+    new_h = int(H * scale)
+
+    return image.resize((new_w, new_h), Image.BILINEAR)
+
 def generate_mask_overlay(image_url: str, detections: list):
     # download image
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content)).convert("RGB")
+
+    image = resize_like_model(image)
 
     img = np.array(image)
 
