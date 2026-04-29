@@ -376,7 +376,7 @@ def history_outgoing(
             "method": outgoing.method,
             "image": (
                 detection.mask_path if outgoing.method == "ai" and detection
-                else "default_stock_image.png"),
+                else None),
             "created_at": outgoing.created_at
         })
 
