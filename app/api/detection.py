@@ -5,6 +5,7 @@ from app.db.session import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.item import Item
+from app.models.type import Type
 from app.models.detection import Detection
 
 from app.services.ai_service import detect_objects
@@ -17,10 +18,10 @@ router = APIRouter(prefix="/detection", tags=["Detection"])
 @router.post("/{item_id}")
 def run_detection(
     item_id: int,
+    type_id: int,  # 🔥 dari user dropdown
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-
     item = db.query(Item).filter(
         Item.item_id == item_id,
         Item.user_id == current_user.user_id
@@ -39,29 +40,32 @@ def run_detection(
             detail="Item already detected"
         )
 
+    # 🔥 panggil AI
     result = detect_objects(item.image_path)
 
-    # =========================
-    # VALIDASI TYPE
-    # =========================
-    type_data = get_type_by_name(db, result["type_name"])
+    # 🔥 ambil type langsung dari DB (bukan dari AI)
+    type_data = db.query(Type).filter(Type.type_id == type_id).first()
 
     if not type_data:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Type '{result['type_name']}' not found in database"
-        )
+        raise HTTPException(404, "Type not found")
 
-    # =========================
-    # SAVE
-    # =========================
+    # 🔥 proses hasil AI
+    total_count = result["counts"]["total"]
+
+    # rata-rata confidence
+    confidences = [d["confidence"] for d in result["detections"]]
+    avg_conf = sum(confidences) / len(confidences) if confidences else 0
+
+    # TODO: nanti ini dari overlay generator
+    mask_url = result.get("mask_url", item.image_path)
+
     detection = save_detection(
         db=db,
         item_id=item_id,
         type_id=type_data.type_id,
-        mask_path=result["mask_url"],
-        object_count=result["count"],
-        confidence_score=result["confidence_score"]
+        mask_path=mask_url,
+        object_count=total_count,
+        confidence_score=avg_conf
     )
 
     return {
