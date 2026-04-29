@@ -38,9 +38,12 @@ def run_detection(
             status_code=400,
             detail="Item already detected"
         )
-    
+
     result = detect_objects(item.image_path)
 
+    # =========================
+    # VALIDASI TYPE
+    # =========================
     type_data = get_type_by_name(db, result["type_name"])
 
     if not type_data:
@@ -49,6 +52,9 @@ def run_detection(
             detail=f"Type '{result['type_name']}' not found in database"
         )
 
+    # =========================
+    # SAVE
+    # =========================
     detection = save_detection(
         db=db,
         item_id=item_id,

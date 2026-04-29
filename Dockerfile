@@ -2,7 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get upgrade -y && apt-get clean
+# install system dependencies untuk OpenCV & PIL
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    libjpeg-dev \
+    libpng-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # copy dependency dulu (biar caching)
 COPY requirements.txt .
