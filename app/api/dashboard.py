@@ -73,110 +73,54 @@ def get_summary(
     _ = Depends(get_current_user)
 ):
     now = datetime.now()
+
+    # range bulan sekarang (INDEX FRIENDLY)
     start = datetime(now.year, now.month, 1)
     end = datetime(now.year + (now.month // 12), (now.month % 12) + 1, 1)
 
-    # 1x query summary
-    hist = db.query(
+    # ======================
+    # 1. HISTORICAL (AGGREGATED)
+    # ======================
+    hist_in, hist_out = db.query(
         func.coalesce(func.sum(MonthlySummary.total_incoming), 0),
         func.coalesce(func.sum(MonthlySummary.total_outgoing), 0)
     ).first()
 
-    # realtime bulan ini (index-friendly)
-    real = db.query(
-        func.coalesce(func.sum(IncomingLog.quantity), 0),
-        func.coalesce(func.sum(OutgoingLog.quantity), 0)
+    # ======================
+    # 2. REALTIME (BULAN SEKARANG)
+    # ======================
+
+    # incoming
+    real_in = db.query(
+        func.coalesce(func.sum(IncomingLog.quantity), 0)
     ).filter(
         IncomingLog.created_at >= start,
-        IncomingLog.created_at < end,
+        IncomingLog.created_at < end
+    ).scalar()
+
+    # outgoing
+    real_out = db.query(
+        func.coalesce(func.sum(OutgoingLog.quantity), 0)
+    ).filter(
         OutgoingLog.created_at >= start,
         OutgoingLog.created_at < end
-    ).first()
+    ).scalar()
 
-    stock = db.query(func.coalesce(func.sum(Type.total_items), 0)).scalar()
+    # ======================
+    # 3. CURRENT STOCK
+    # ======================
+    current_stock = db.query(
+        func.coalesce(func.sum(Type.total_items), 0)
+    ).scalar()
 
+    # ======================
+    # 4. RESULT
+    # ======================
     return {
-        "total_incoming": int(hist[0] + real[0]),
-        "total_outgoing": int(hist[1] + real[1]),
-        "current_stock": int(stock)
+        "total_incoming": int(hist_in + real_in),
+        "total_outgoing": int(hist_out + real_out),
+        "current_stock": int(current_stock)
     }
-
-# @router.get("/summary")
-# def get_summary(
-#     db: Session = Depends(get_db),
-#     _ = Depends(get_current_user)
-# ):
-#     total_incoming = db.query(
-#         func.sum(MonthlySummary.total_incoming)
-#     ).scalar() or 0
-
-#     total_outgoing = db.query(
-#         func.sum(MonthlySummary.total_outgoing)
-#     ).scalar() or 0
-
-#     current_stock = db.query(
-#         func.sum(Type.total_items)
-#     ).scalar() or 0
-
-#     return {
-#         "total_incoming": int(total_incoming),
-#         "total_outgoing": int(total_outgoing),
-#         "current_stock": int(current_stock)
-#     }
-
-# @router.get("/monthly/incoming")
-# def get_monthly_incoming(
-#     db: Session = Depends(get_db),
-#     _ = Depends(get_current_user)
-# ):
-
-#     results = db.query(
-#         extract("year", Activity.detected_at).label("year"),
-#         extract("month", Activity.detected_at).label("month"),
-#         Activity.type_id,
-#         func.sum(Activity.detected_sum).label("total")
-#     ).group_by(
-#         "year", "month", Activity.type_id
-#     ).all()
-
-#     data = []
-
-#     for year, month, type_id, total in results:
-#         data.append({
-#             "year": int(year),
-#             "month": int(month),
-#             "type_id": type_id,
-#             "total_incoming": int(total)
-#         })
-
-#     return data
-
-# @router.get("/monthly/outgoing")
-# def get_monthly_outgoing(
-#     db: Session = Depends(get_db),
-#     _ = Depends(get_current_user)
-# ):
-
-#     results = db.query(
-#         extract("year", OutgoingLog.created_at).label("year"),
-#         extract("month", OutgoingLog.created_at).label("month"),
-#         OutgoingLog.type_id,
-#         func.sum(OutgoingLog.quantity).label("total")
-#     ).group_by(
-#         "year", "month", OutgoingLog.type_id
-#     ).all()
-
-#     data = []
-
-#     for year, month, type_id, total in results:
-#         data.append({
-#             "year": int(year),
-#             "month": int(month),
-#             "type_id": type_id,
-#             "total_outgoing": int(total)
-#         })
-
-#     return data
 
 @router.get("/monthly")
 def get_monthly_summary(
@@ -215,7 +159,9 @@ def get_monthly_hybrid(
     start = datetime(now.year, now.month, 1)
     end = datetime(now.year + (now.month // 12), (now.month % 12) + 1, 1)
 
-    # HISTORICAL (langsung summary)
+    # ======================
+    # 1. HISTORICAL
+    # ======================
     historical = db.query(
         MonthlySummary.year,
         MonthlySummary.month,
@@ -227,55 +173,92 @@ def get_monthly_hybrid(
         ((MonthlySummary.year == now.year) & (MonthlySummary.month < now.month))
     ).all()
 
-    # REALTIME (gabung langsung di SQL)
-    realtime = db.query(
+    # ======================
+    # 2. REALTIME INCOMING
+    # ======================
+    incoming = db.query(
         extract("year", IncomingLog.created_at).label("year"),
         extract("month", IncomingLog.created_at).label("month"),
         Type.name,
-        func.sum(IncomingLog.quantity).label("incoming"),
-        func.coalesce(func.sum(OutgoingLog.quantity), 0).label("outgoing")
+        func.sum(IncomingLog.quantity).label("incoming")
     )\
-     .select_from(IncomingLog)\
-     .join(Type, Type.type_id == IncomingLog.type_id)\
-     .outerjoin(
-        OutgoingLog,
-        (OutgoingLog.type_id == IncomingLog.type_id) &
-        (extract("year", OutgoingLog.created_at) == extract("year", IncomingLog.created_at)) &
-        (extract("month", OutgoingLog.created_at) == extract("month", IncomingLog.created_at))
-     )\
-     .filter(
+    .join(Type, Type.type_id == IncomingLog.type_id)\
+    .filter(
         IncomingLog.created_at >= start,
         IncomingLog.created_at < end
-     )\
-     .group_by(
+    )\
+    .group_by(
         extract("year", IncomingLog.created_at),
         extract("month", IncomingLog.created_at),
         Type.name
-     ).all()
+    ).all()
 
-    data = []
+    # ======================
+    # 3. REALTIME OUTGOING
+    # ======================
+    outgoing = db.query(
+        extract("year", OutgoingLog.created_at).label("year"),
+        extract("month", OutgoingLog.created_at).label("month"),
+        Type.name,
+        func.sum(OutgoingLog.quantity).label("outgoing")
+    )\
+    .join(Type, Type.type_id == OutgoingLog.type_id)\
+    .filter(
+        OutgoingLog.created_at >= start,
+        OutgoingLog.created_at < end
+    )\
+    .group_by(
+        extract("year", OutgoingLog.created_at),
+        extract("month", OutgoingLog.created_at),
+        Type.name
+    ).all()
 
+    # ======================
+    # 4. MERGE (ANTI DUPLIKASI)
+    # ======================
+    data_map = {}
+
+    # historical
     for h in historical:
-        data.append({
+        key = (h.year, h.month, h.name)
+        data_map[key] = {
             "year": h.year,
             "month": h.month,
             "type": h.name,
-            "incoming": h.total_incoming,
-            "outgoing": h.total_outgoing,
+            "incoming": int(h.total_incoming or 0),
+            "outgoing": int(h.total_outgoing or 0),
             "source": "aggregated"
-        })
+        }
 
-    for r in realtime:
-        data.append({
-            "year": int(r[0]),
-            "month": int(r[1]),
-            "type": r[2],
-            "incoming": int(r[3] or 0),
-            "outgoing": int(r[4] or 0),
-            "source": "realtime"
-        })
+    # incoming
+    for i in incoming:
+        key = (int(i.year), int(i.month), i.name)
+        if key not in data_map:
+            data_map[key] = {
+                "year": int(i.year),
+                "month": int(i.month),
+                "type": i.name,
+                "incoming": 0,
+                "outgoing": 0,
+                "source": "realtime"
+            }
+        data_map[key]["incoming"] += int(i.incoming or 0)
 
-    return data
+    # outgoing
+    for o in outgoing:
+        key = (int(o.year), int(o.month), o.name)
+        if key not in data_map:
+            data_map[key] = {
+                "year": int(o.year),
+                "month": int(o.month),
+                "type": o.name,
+                "incoming": 0,
+                "outgoing": 0,
+                "source": "realtime"
+            }
+        data_map[key]["outgoing"] += int(o.outgoing or 0)
+
+    return list(data_map.values())
 
 @router.get("/monthly-by-type")
 def get_monthly_by_type(
