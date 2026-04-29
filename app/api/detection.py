@@ -77,7 +77,7 @@ def run_detection(
     # TYPE DARI USER (ITEM)
     # ======================
     type_data = db.query(Type).filter(
-        Type.type_id == detection.type_id
+        Type.type_id == Detection.type_id
     ).first()
 
     if not type_data:
