@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api import auth
 from app.core.dependencies import get_current_user
-from app.core.scheduler import start_scheduler
 from fastapi import Depends
 from app.api import inventory
 from app.api import detection
@@ -28,10 +27,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-def startup_event():
-    start_scheduler()
 
 # =========================
 # Root Endpoint
