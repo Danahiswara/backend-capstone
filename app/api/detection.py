@@ -77,8 +77,8 @@ def run_detection(
     # TYPE DARI USER (ITEM)
     # ======================
     type_data = db.query(Type).filter(
-        Type.type_id == item.type_id
-        ).first()
+        Type.type_id == detection.type_id
+    ).first()
 
     if not type_data:
         raise HTTPException(400, "Type not found")
