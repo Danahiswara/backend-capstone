@@ -7,10 +7,25 @@ from app.utils.supabase_upload import upload_mask_image
 def detect_objects(image_url: str):
     endpoint = f"{settings.AI_SERVICE_URL}/predict"
 
+    # =========================
+    # DOWNLOAD IMAGE
+    # =========================
+    img_response = requests.get(image_url)
+
+    if img_response.status_code != 200:
+        raise Exception("Failed to download image")
+
+    files = {
+        "file": ("image.jpg", img_response.content, "image/jpeg")
+    }
+
+    # =========================
+    # SEND TO AI (multipart)
+    # =========================
     response = requests.post(
         endpoint,
-        json={"image_url": image_url},
-        timeout=60
+        files=files,
+        timeout=120
     )
 
     if response.status_code != 200:
@@ -39,7 +54,7 @@ def detect_objects(image_url: str):
         avg_conf = 0.0
 
     # =========================
-    # GENERATE MASK
+    # MASK
     # =========================
     try:
         mask_img = generate_mask_overlay(image_url, detections)
