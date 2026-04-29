@@ -8,12 +8,8 @@ from app.models.item import Item
 from app.models.type import Type
 from app.models.detection import Detection
 
-from app.utils.mask_overlay import generate_mask_overlay
-from app.utils.supabase_upload import upload_mask_image
-
 from app.services.ai_service import detect_objects
 from app.services.detection_service import save_detection
-from app.services.type_service import get_type_by_name
 
 router = APIRouter(prefix="/detection", tags=["Detection"])
 
@@ -21,7 +17,7 @@ router = APIRouter(prefix="/detection", tags=["Detection"])
 @router.post("/{item_id}")
 def run_detection(
     item_id: int,
-    type_id: int,  # 🔥 dari user (QUERY PARAM / FORM)
+    type_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -37,7 +33,7 @@ def run_detection(
         raise HTTPException(404, "Item not found")
 
     # ======================
-    # VALIDASI TYPE (PENTING)
+    # VALIDASI TYPE
     # ======================
     type_data = db.query(Type).filter(
         Type.type_id == type_id
@@ -47,7 +43,7 @@ def run_detection(
         raise HTTPException(404, "Type not found")
 
     # ======================
-    # CEK DUPLIKAT DETEKSI
+    # CEK DUPLIKAT
     # ======================
     existing = db.query(Detection).filter(
         Detection.item_id == item_id
@@ -57,39 +53,12 @@ def run_detection(
         raise HTTPException(400, "Item already detected")
 
     # ======================
-    # CALL AI
+    # CALL AI (SUDAH FINAL)
     # ======================
     result = detect_objects(item.image_path)
 
     if not result:
-        raise HTTPException(500, "AI service error")
-
-    detections = result.get("detections", [])
-
-    # ======================
-    # OBJECT COUNT
-    # ======================
-    object_count = result.get("total_detections") \
-        or result.get("counts", {}).get("total", 0)
-
-    # ======================
-    # AVG CONFIDENCE
-    # ======================
-    if detections:
-        confidences = [d.get("confidence", 0) for d in detections]
-        avg_conf = sum(confidences) / len(confidences)
-    else:
-        avg_conf = 0
-
-    # ======================
-    # GENERATE MASK
-    # ======================
-    overlay = generate_mask_overlay(
-        item.image_path,
-        detections
-    )
-
-    mask_url = upload_mask_image(overlay)
+        raise HTTPException(500, "AI service failed")
 
     # ======================
     # SAVE
@@ -97,16 +66,16 @@ def run_detection(
     detection = save_detection(
         db=db,
         item_id=item_id,
-        type_id=type_id,  # 🔥 dari user
-        mask_path=mask_url,
-        object_count=int(object_count),
-        confidence_score=float(avg_conf)
+        type_id=type_id,
+        mask_path=result["mask_url"],
+        object_count=result["count"],
+        confidence_score=result["confidence_score"]
     )
 
     return {
         "item_id": item_id,
         "type_id": detection.type_id,
         "count": detection.object_count,
-        "confidence_score": round(detection.confidence_score, 4),
+        "confidence_score": detection.confidence_score,
         "mask_url": detection.mask_path
     }

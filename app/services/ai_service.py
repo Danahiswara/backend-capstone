@@ -1,52 +1,55 @@
 import requests
 from app.core.config import settings
-from app.services.mock_ai_service import mock_detect_objects
 from app.utils.mask_overlay import generate_mask_overlay
 from app.utils.supabase_upload import upload_mask_image
 
 
 def detect_objects(image_url: str):
-
-    if settings.USE_MOCK_AI:
-        return mock_detect_objects(image_url)
-
     endpoint = f"{settings.AI_SERVICE_URL}/predict"
 
     response = requests.post(
         endpoint,
-        json={"image_url": image_url}
+        json={"image_url": image_url},
+        timeout=60
     )
 
     if response.status_code != 200:
-        raise Exception("AI service error")
+        raise Exception(f"AI service error: {response.text}")
 
     data = response.json()
 
     # =========================
-    # 🔥 PROCESS RESULT
+    # SAFE PARSING
     # =========================
-    detections = data["detections"]
+    detections = data.get("detections", [])
 
-    total_count = data["counts"]["total"]
-
-    # rata-rata confidence
-    avg_conf = sum(d["confidence"] for d in detections) / len(detections)
-
-    # ambil class dominan
-    type_name = max(
-        data["counts"],
-        key=lambda k: data["counts"][k] if k != "total" else -1
+    total_count = (
+        data.get("total_detections")
+        or data.get("counts", {}).get("total")
+        or len(detections)
+        or 0
     )
 
-    # generate mask overlay
-    mask_img = generate_mask_overlay(image_url, detections)
+    # =========================
+    # CONFIDENCE
+    # =========================
+    if detections:
+        avg_conf = sum(d.get("confidence", 0) for d in detections) / len(detections)
+    else:
+        avg_conf = 0.0
 
-    # upload ke supabase
-    mask_url = upload_mask_image(mask_img)
+    # =========================
+    # GENERATE MASK
+    # =========================
+    try:
+        mask_img = generate_mask_overlay(image_url, detections)
+        mask_url = upload_mask_image(mask_img)
+    except Exception as e:
+        print("MASK ERROR:", str(e))
+        mask_url = None
 
     return {
-        "type_name": type_name,
-        "count": total_count,
+        "count": int(total_count),
         "confidence_score": round(avg_conf, 4),
         "mask_url": mask_url
     }

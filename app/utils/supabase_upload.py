@@ -7,7 +7,7 @@ supabase = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
 
 
 def upload_mask_image(image_np):
-    filename = f"mask/{uuid.uuid4()}.jpg"
+    filename = f"masks/{uuid.uuid4()}.jpg"
 
     _, buffer = cv2.imencode(".jpg", image_np)
 
