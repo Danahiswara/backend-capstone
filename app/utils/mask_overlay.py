@@ -1,9 +1,16 @@
 import requests
 import numpy as np
 import cv2
+import random
 from PIL import Image
 from io import BytesIO
 
+def random_color():
+    return (
+        random.randint(0, 255),
+        random.randint(0, 255),
+        random.randint(0, 255),
+    )
 
 def resize_like_model(image: Image.Image, max_size=800):
     W, H = image.size
@@ -19,32 +26,34 @@ def resize_like_model(image: Image.Image, max_size=800):
     return image.resize((new_w, new_h), Image.BILINEAR)
 
 def generate_mask_overlay(image_url: str, detections: list):
-    # download image
+    # DOWNLOAD IMAGE
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content)).convert("RGB")
-
-    image = resize_like_model(image)
-
     img = np.array(image)
 
     overlay = img.copy()
 
+    # LOOP OBJECT (INSTANCE)
     for det in detections:
-        bbox = det["bbox"]
+        polygon = det.get("polygon")
 
-        x1 = int(bbox["x1"])
-        y1 = int(bbox["y1"])
-        x2 = int(bbox["x2"])
-        y2 = int(bbox["y2"])
+        if not polygon:
+            continue
 
-        # warna mask (hijau transparan)
-        color = (0, 255, 0)
+        # convert ke numpy
+        pts = np.array(polygon, dtype=np.int32).reshape((-1, 1, 2))
 
-        # gambar rectangle sebagai mask sederhana
-        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, -1)
+        # warna random per object
+        color = random_color()
 
-    # blend (transparansi)
-    alpha = 0.3
+        # DRAW FILLED MASK
+        cv2.fillPoly(overlay, [pts], color)
+
+        # OPTIONAL: OUTLINE
+        cv2.polylines(overlay, [pts], True, (0, 0, 0), 2)
+
+    # BLEND DENGAN IMAGE ASLI
+    alpha = 0.4
     result = cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0)
 
     return result
