@@ -57,6 +57,7 @@ def get_my_items(
     for item, detection in results:
         response.append({
             "item_id": item.item_id,
+            "detection_id": detection.detection_id,
             "image": item.image_path,
             "mask": detection.mask_path,
             "object_count": detection.object_count,
