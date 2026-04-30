@@ -73,6 +73,7 @@ def run_detection(
     )
 
     return {
+        "detection_id": detection.detection_id,
         "item_id": item_id,
         "type_id": detection.type_id,
         "count": detection.object_count,
