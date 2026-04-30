@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session
 from app.models.item import Item
+from typing import Optional
 
-def create_item(db: Session, user_id: int, item_name: str, image_path: str):
+def create_item(db: Session, user_id: int, item_name: Optional [str] = None, image_path: str = None):
     new_item = Item(
         user_id=user_id,
         item_name=item_name,

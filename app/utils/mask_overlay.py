@@ -29,6 +29,7 @@ def generate_mask_overlay(image_url: str, detections: list):
     # DOWNLOAD IMAGE
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content)).convert("RGB")
+    image = resize_like_model(image)
     img = np.array(image)
 
     overlay = img.copy()

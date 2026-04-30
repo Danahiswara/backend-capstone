@@ -1,8 +1,9 @@
 from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
 
 class ItemCreate(BaseModel):
-    item_name: str
+    item_name: Optional [str] = None
     image_path: str
 
 class ItemResponse(BaseModel):
