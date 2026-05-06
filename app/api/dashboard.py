@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
@@ -16,43 +16,6 @@ from sqlalchemy.orm import joinedload
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
-@router.get("/types")
-def get_types(
-    search: str = Query(None),
-    limit: int = Query(10, le=50),
-    db: Session = Depends(get_db),
-    _ = Depends(get_current_user)
-):
-    query = db.query(Type)
-
-    if search:
-        search_lower = search.lower()
-
-        query = query.filter(
-            func.lower(Type.name).like(f"%{search_lower}%")
-        )
-
-        query = query.order_by(
-            case(
-                (func.lower(Type.name) == search_lower, 0),          # exact
-                (func.lower(Type.name).like(f"{search_lower}%"), 1), # prefix
-                else_=2
-            ),
-            Type.name.asc()
-        )
-    else:
-        query = query.order_by(Type.name.asc())
-
-    results = query.limit(limit).all()
-
-    return [
-        {
-            "type_id": t.type_id,
-            "name": t.name,
-            "stock": t.total_items
-        }
-        for t in results
-    ]
 
 @router.get("/stock")
 def get_stock(db: Session = Depends(get_db)):
@@ -78,17 +41,13 @@ def get_summary(
     start = datetime(now.year, now.month, 1)
     end = datetime(now.year + (now.month // 12), (now.month % 12) + 1, 1)
 
-    # ======================
     # 1. HISTORICAL (AGGREGATED)
-    # ======================
     hist_in, hist_out = db.query(
         func.coalesce(func.sum(MonthlySummary.total_incoming), 0),
         func.coalesce(func.sum(MonthlySummary.total_outgoing), 0)
     ).first()
 
-    # ======================
     # 2. REALTIME (BULAN SEKARANG)
-    # ======================
 
     # incoming
     real_in = db.query(
@@ -106,20 +65,144 @@ def get_summary(
         OutgoingLog.created_at < end
     ).scalar()
 
-    # ======================
     # 3. CURRENT STOCK
-    # ======================
     current_stock = db.query(
         func.coalesce(func.sum(Type.total_items), 0)
     ).scalar()
 
-    # ======================
     # 4. RESULT
-    # ======================
     return {
         "total_incoming": int(hist_in + real_in),
         "total_outgoing": int(hist_out + real_out),
         "current_stock": int(current_stock)
+    }
+
+@router.get("/top-distributor")
+def top_distributor(db: Session = Depends(get_db)):
+    result = db.query(
+        Type.distributor,
+        func.count(Type.type_id).label("total")
+    ).filter(
+        Type.distributor.isnot(None)
+    ).group_by(Type.distributor)\
+     .order_by(func.count(Type.type_id).desc())\
+     .all()
+
+    return result
+
+@router.get("/top-farmasi")
+def top_farmasi(db: Session = Depends(get_db)):
+    result = db.query(
+        Type.farmasi,
+        func.count(Type.type_id).label("total")
+    ).filter(
+        Type.farmasi.isnot(None)
+    ).group_by(Type.farmasi)\
+     .order_by(func.count(Type.type_id).desc())\
+     .all()
+
+    return result
+
+@router.get("/top-outgoing-last-month")
+def top_outgoing_last_month(db: Session = Depends(get_db)):
+    now = datetime.now()
+
+    if now.month == 1:
+        year = now.year - 1
+        month = 12
+    else:
+        year = now.year
+        month = now.month - 1
+
+    result = db.query(
+        Type.name,
+        func.sum(OutgoingLog.quantity).label("total_out")
+    ).join(OutgoingLog)\
+     .filter(
+        extract("year", OutgoingLog.created_at) == year,
+        extract("month", OutgoingLog.created_at) == month
+    )\
+     .group_by(Type.name)\
+     .order_by(func.sum(OutgoingLog.quantity).desc())\
+     .limit(5)\
+     .all()
+
+    return result
+
+@router.get("/yearly-trend")
+def yearly_trend(year: int, db: Session = Depends(get_db)):
+    result = db.query(
+        MonthlySummary.month,
+        func.sum(MonthlySummary.total_incoming).label("incoming"),
+        func.sum(MonthlySummary.total_outgoing).label("outgoing")
+    ).filter(
+        MonthlySummary.year == year
+    ).group_by(MonthlySummary.month)\
+     .order_by(MonthlySummary.month)\
+     .all()
+
+    return result
+
+@router.get("/peak-month")
+def peak_month(year: int, db: Session = Depends(get_db)):
+    data = db.query(
+        MonthlySummary.month,
+        func.sum(MonthlySummary.total_incoming).label("incoming"),
+        func.sum(MonthlySummary.total_outgoing).label("outgoing")
+    ).filter(
+        MonthlySummary.year == year
+    ).group_by(MonthlySummary.month).all()
+
+    max_in = max(data, key=lambda x: x.incoming or 0)
+    max_out = max(data, key=lambda x: x.outgoing or 0)
+
+    return {
+        "highest_incoming": max_in,
+        "highest_outgoing": max_out
+    }
+
+@router.get("/stock-difference")
+def stock_difference(db: Session = Depends(get_db)):
+    now = datetime.now()
+
+    def get_total(year, month):
+        return db.query(
+            func.sum(MonthlySummary.total_incoming - MonthlySummary.total_outgoing)
+        ).filter(
+            MonthlySummary.year == year,
+            MonthlySummary.month == month
+        ).scalar() or 0
+
+    # bulan ini
+    current = get_total(now.year, now.month)
+
+    # bulan lalu
+    if now.month == 1:
+        prev = get_total(now.year - 1, 12)
+    else:
+        prev = get_total(now.year, now.month - 1)
+
+    diff = current - prev
+
+    return {
+        "current": current,
+        "previous": prev,
+        "difference": diff,
+        "status": "naik" if diff > 0 else "turun" if diff < 0 else "stabil"
+    }
+
+@router.get("/type-detail/{type_id}")
+def type_detail(type_id: int, db: Session = Depends(get_db)):
+    data = db.query(Type).filter(Type.type_id == type_id).first()
+
+    if not data:
+        raise HTTPException(404, "Type not found")
+
+    return {
+        "name": data.name,
+        "komposisi": data.komposisi,
+        "farmasi": data.farmasi,
+        "distributor": data.distributor
     }
 
 @router.get("/monthly")
@@ -159,9 +242,7 @@ def get_monthly_hybrid(
     start = datetime(now.year, now.month, 1)
     end = datetime(now.year + (now.month // 12), (now.month % 12) + 1, 1)
 
-    # ======================
     # 1. HISTORICAL
-    # ======================
     historical = db.query(
         MonthlySummary.year,
         MonthlySummary.month,
@@ -173,9 +254,7 @@ def get_monthly_hybrid(
         ((MonthlySummary.year == now.year) & (MonthlySummary.month < now.month))
     ).all()
 
-    # ======================
     # 2. REALTIME INCOMING
-    # ======================
     incoming = db.query(
         extract("year", IncomingLog.created_at).label("year"),
         extract("month", IncomingLog.created_at).label("month"),
@@ -193,9 +272,7 @@ def get_monthly_hybrid(
         Type.name
     ).all()
 
-    # ======================
     # 3. REALTIME OUTGOING
-    # ======================
     outgoing = db.query(
         extract("year", OutgoingLog.created_at).label("year"),
         extract("month", OutgoingLog.created_at).label("month"),
@@ -213,9 +290,7 @@ def get_monthly_hybrid(
         Type.name
     ).all()
 
-    # ======================
     # 4. MERGE (ANTI DUPLIKASI)
-    # ======================
     data_map = {}
 
     # historical

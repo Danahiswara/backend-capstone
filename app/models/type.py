@@ -9,9 +9,11 @@ class Type(Base):
     type_id = Column(Integer, primary_key=True, index=True)
 
     name = Column(String, nullable=False)
-    description = Column(String, nullable=False)
-    category = Column(String)
+    komposisi = Column(String, nullable=True)
+    farmasi = Column(String, nullable=True)
+    distributor = Column(String, nullable=True)
     total_items = Column(Integer, nullable=False)
+    is_active = Column(String)
 
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
