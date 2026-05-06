@@ -6,8 +6,11 @@ from app.services.admin_service import (
     approve_user,
     delete_user,
     reject_user,
-    get_approved_petugas
+    get_approved_petugas,
+    create_type,
+    update_type
 )
+from app.schemas.type import TypeCreate, TypeResponse, TypeUpdate
 from app.core.dependencies import get_current_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -57,3 +60,37 @@ def delete(
     admin = Depends(get_current_admin)
 ):
     return delete_user(db, user_id)
+
+
+@router.post("/types", response_model=TypeResponse)
+def create_obat(
+    payload: TypeCreate,
+    db: Session = Depends(get_db),
+    admin = Depends(get_current_admin)
+):
+    return create_type(
+        db=db,
+        name=payload.name,
+        komposisi=payload.komposisi,
+        farmasi=payload.farmasi,
+        distributor=payload.distributor,
+        total_items=payload.total_items
+    )
+
+
+@router.put("/types/{type_id}", response_model=TypeResponse)
+def update_obat(
+    type_id: int,
+    payload: TypeUpdate,
+    db: Session = Depends(get_db),
+    admin = Depends(get_current_admin)
+):
+    return update_type(
+        db=db,
+        type_id=type_id,
+        name=payload.name,
+        komposisi=payload.komposisi,
+        farmasi=payload.farmasi,
+        distributor=payload.distributor,
+        total_items=payload.total_items
+    )
