@@ -91,7 +91,13 @@ def top_distributor(
      .order_by(func.count(Type.type_id).desc())\
      .all()
 
-    return result
+    return [
+        {
+            "distributor": r.distributor,
+            "total": int(r.total)
+        }
+        for r in result
+    ]
 
 @router.get("/top-farmasi")
 def top_farmasi(
@@ -107,7 +113,13 @@ def top_farmasi(
      .order_by(func.count(Type.type_id).desc())\
      .all()
 
-    return result
+    return [
+        {
+            "farmasi": r.farmasi,
+            "total": int(r.total)
+        }
+        for r in result
+    ]
 
 @router.get("/top-outgoing-last-month")
 def top_outgoing_last_month(
@@ -136,7 +148,13 @@ def top_outgoing_last_month(
      .limit(5)\
      .all()
 
-    return result
+    return [
+        {
+            "name": r.name,
+            "total_out": int(r.total_out)
+        }
+        for r in result
+    ]
 
 @router.get("/yearly-trend")
 def yearly_trend(
@@ -154,7 +172,14 @@ def yearly_trend(
      .order_by(MonthlySummary.month)\
      .all()
 
-    return result
+    return [
+        {
+            "month": int(r.month),
+            "incoming": int(r.incoming),
+            "outgoing": int(r.outgoing)
+        }
+        for r in result
+    ]
 
 @router.get("/peak-month")
 def peak_month(
