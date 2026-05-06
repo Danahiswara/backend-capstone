@@ -78,7 +78,10 @@ def get_summary(
     }
 
 @router.get("/top-distributor")
-def top_distributor(db: Session = Depends(get_db)):
+def top_distributor(
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_user)
+):
     result = db.query(
         Type.distributor,
         func.count(Type.type_id).label("total")
@@ -91,7 +94,10 @@ def top_distributor(db: Session = Depends(get_db)):
     return result
 
 @router.get("/top-farmasi")
-def top_farmasi(db: Session = Depends(get_db)):
+def top_farmasi(
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_user)
+):
     result = db.query(
         Type.farmasi,
         func.count(Type.type_id).label("total")
@@ -104,7 +110,10 @@ def top_farmasi(db: Session = Depends(get_db)):
     return result
 
 @router.get("/top-outgoing-last-month")
-def top_outgoing_last_month(db: Session = Depends(get_db)):
+def top_outgoing_last_month(
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_user)
+):
     now = datetime.now()
 
     if now.month == 1:
@@ -130,7 +139,11 @@ def top_outgoing_last_month(db: Session = Depends(get_db)):
     return result
 
 @router.get("/yearly-trend")
-def yearly_trend(year: int, db: Session = Depends(get_db)):
+def yearly_trend(
+    year: int, 
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_user)
+):
     result = db.query(
         MonthlySummary.month,
         func.sum(MonthlySummary.total_incoming).label("incoming"),
@@ -144,7 +157,11 @@ def yearly_trend(year: int, db: Session = Depends(get_db)):
     return result
 
 @router.get("/peak-month")
-def peak_month(year: int, db: Session = Depends(get_db)):
+def peak_month(
+    year: int, 
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_user)
+):
     data = db.query(
         MonthlySummary.month,
         func.sum(MonthlySummary.total_incoming).label("incoming"),
@@ -162,7 +179,10 @@ def peak_month(year: int, db: Session = Depends(get_db)):
     }
 
 @router.get("/stock-difference")
-def stock_difference(db: Session = Depends(get_db)):
+def stock_difference(
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_user)
+):
     now = datetime.now()
 
     def get_total(year, month):
@@ -192,7 +212,11 @@ def stock_difference(db: Session = Depends(get_db)):
     }
 
 @router.get("/type-detail/{type_id}")
-def type_detail(type_id: int, db: Session = Depends(get_db)):
+def type_detail(
+    type_id: int, 
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_user)
+):
     data = db.query(Type).filter(Type.type_id == type_id).first()
 
     if not data:
@@ -205,33 +229,33 @@ def type_detail(type_id: int, db: Session = Depends(get_db)):
         "distributor": data.distributor
     }
 
-@router.get("/monthly")
-def get_monthly_summary(
-    db: Session = Depends(get_db),
-    _ = Depends(get_current_user)
-):
-    results = db.query(
-        MonthlySummary.year,
-        MonthlySummary.month,
-        func.sum(MonthlySummary.total_incoming),
-        func.sum(MonthlySummary.total_outgoing)
-    ).group_by(
-        MonthlySummary.year,
-        MonthlySummary.month
-    ).order_by(
-        MonthlySummary.year,
-        MonthlySummary.month
-    ).all()
+# @router.get("/monthly")
+# def get_monthly_summary(
+#     db: Session = Depends(get_db),
+#     _ = Depends(get_current_user)
+# ):
+#     results = db.query(
+#         MonthlySummary.year,
+#         MonthlySummary.month,
+#         func.sum(MonthlySummary.total_incoming),
+#         func.sum(MonthlySummary.total_outgoing)
+#     ).group_by(
+#         MonthlySummary.year,
+#         MonthlySummary.month
+#     ).order_by(
+#         MonthlySummary.year,
+#         MonthlySummary.month
+#     ).all()
 
-    return [
-        {
-            "year": y,
-            "month": m,
-            "total_incoming": int(i or 0),
-            "total_outgoing": int(o or 0)
-        }
-        for y, m, i, o in results
-    ]
+#     return [
+#         {
+#             "year": y,
+#             "month": m,
+#             "total_incoming": int(i or 0),
+#             "total_outgoing": int(o or 0)
+#         }
+#         for y, m, i, o in results
+#     ]
 
 @router.get("/monthly-hybrid")
 def get_monthly_hybrid(
@@ -335,33 +359,33 @@ def get_monthly_hybrid(
 
     return list(data_map.values())
 
-@router.get("/monthly-by-type")
-def get_monthly_by_type(
-    db: Session = Depends(get_db),
-    _ = Depends(get_current_user)
-):
-    results = db.query(
-        MonthlySummary.year,
-        MonthlySummary.month,
-        Type.name,
-        MonthlySummary.total_incoming,
-        MonthlySummary.total_outgoing
-    ).join(Type, Type.type_id == MonthlySummary.type_id)\
-     .order_by(
-        MonthlySummary.year,
-        MonthlySummary.month
-     ).all()
+# @router.get("/monthly-by-type")
+# def get_monthly_by_type(
+#     db: Session = Depends(get_db),
+#     _ = Depends(get_current_user)
+# ):
+#     results = db.query(
+#         MonthlySummary.year,
+#         MonthlySummary.month,
+#         Type.name,
+#         MonthlySummary.total_incoming,
+#         MonthlySummary.total_outgoing
+#     ).join(Type, Type.type_id == MonthlySummary.type_id)\
+#      .order_by(
+#         MonthlySummary.year,
+#         MonthlySummary.month
+#      ).all()
 
-    return [
-        {
-            "year": r.year,
-            "month": r.month,
-            "type": r.name,
-            "incoming": int(r.total_incoming),
-            "outgoing": int(r.total_outgoing)
-        }
-        for r in results
-    ]
+#     return [
+#         {
+#             "year": r.year,
+#             "month": r.month,
+#             "type": r.name,
+#             "incoming": int(r.total_incoming),
+#             "outgoing": int(r.total_outgoing)
+#         }
+#         for r in results
+#     ]
 
 @router.get("/history/incoming")
 def history_incoming(
