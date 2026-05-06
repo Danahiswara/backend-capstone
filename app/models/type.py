@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -13,7 +13,7 @@ class Type(Base):
     farmasi = Column(String, nullable=True)
     distributor = Column(String, nullable=True)
     total_items = Column(Integer, nullable=False)
-    is_active = Column(String)
+    is_active = Column(Boolean, default=True)
 
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 

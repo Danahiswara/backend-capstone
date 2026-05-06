@@ -195,12 +195,25 @@ def peak_month(
         MonthlySummary.year == year
     ).group_by(MonthlySummary.month).all()
 
+    # kalau tidak ada data
+    if not data:
+        return {
+            "highest_incoming": None,
+            "highest_outgoing": None
+        }
+
     max_in = max(data, key=lambda x: x.incoming or 0)
     max_out = max(data, key=lambda x: x.outgoing or 0)
 
     return {
-        "highest_incoming": max_in,
-        "highest_outgoing": max_out
+        "highest_incoming": {
+            "month": max_in.month,
+            "total": int(max_in.incoming or 0)
+        },
+        "highest_outgoing": {
+            "month": max_out.month,
+            "total": int(max_out.outgoing or 0)
+        }
     }
 
 @router.get("/stock-difference")

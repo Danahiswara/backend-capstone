@@ -8,7 +8,9 @@ from app.services.admin_service import (
     reject_user,
     get_approved_petugas,
     create_type,
-    update_type
+    update_type,
+    get_types,
+    delete_type
 )
 from app.schemas.type import TypeCreate, TypeResponse, TypeUpdate
 from app.core.dependencies import get_current_admin
@@ -78,6 +80,22 @@ def create_obat(
     )
 
 
+@router.get("/types")
+def get_all_obat(
+    search: str = None,
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    admin = Depends(get_current_admin)
+):
+    return get_types(
+        db=db,
+        search=search,
+        skip=skip,
+        limit=limit
+    )
+
+
 @router.put("/types/{type_id}", response_model=TypeResponse)
 def update_obat(
     type_id: int,
@@ -94,3 +112,12 @@ def update_obat(
         distributor=payload.distributor,
         total_items=payload.total_items
     )
+
+
+@router.delete("/types/{type_id}")
+def delete_obat(
+    type_id: int,
+    db: Session = Depends(get_db),
+    admin = Depends(get_current_admin)
+):
+    return delete_type(db, type_id)

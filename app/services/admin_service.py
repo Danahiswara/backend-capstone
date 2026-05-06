@@ -1,8 +1,39 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from fastapi import HTTPException
 from app.models.user import User
 from app.models.type import Type
 
+
+def get_types(
+    db: Session,
+    search: str = None,
+    skip: int = 0,
+    limit: int = 20
+):
+    query = db.query(Type).filter(Type.is_active == True)
+
+    if search:
+        query = query.filter(
+            or_(
+                Type.name.ilike(f"%{search}%"),
+                Type.komposisi.ilike(f"%{search}%"),
+                Type.farmasi.ilike(f"%{search}%"),
+                Type.distributor.ilike(f"%{search}%")
+            )
+        )
+
+    total = query.count()
+
+    data = query.order_by(Type.type_id.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+
+    return {
+        "total": total,
+        "data": data
+    }
 
 def create_type(
     db: Session,
@@ -61,6 +92,19 @@ def update_type(
     db.refresh(type_data)
 
     return type_data
+
+def delete_type(db: Session, type_id: int):
+    type_data = db.query(Type).filter(Type.type_id == type_id).first()
+
+    if not type_data:
+        raise HTTPException(404, "Obat not found")
+
+    # soft delete
+    type_data.is_active = False
+
+    db.commit()
+
+    return {"message": "Obat deleted successfully"}
 
 def get_pending_users(db: Session):
     return db.query(User).filter(User.is_approved == False).all()
