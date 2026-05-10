@@ -54,7 +54,7 @@ def create_type(
         farmasi=farmasi,
         distributor=distributor,
         total_items=total_items,
-        is_active="true"
+        is_active=True
     )
 
     db.add(new_type)
