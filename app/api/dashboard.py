@@ -460,6 +460,7 @@ def history_incoming(
     for incoming, type_data in results:
         data.append({
             "incoming_id": incoming.incoming_id,
+            "type_id": type_data.type_id,
             "type": type_data.name,
             "quantity": incoming.quantity,
             "created_at": incoming.created_at
@@ -508,6 +509,7 @@ def history_outgoing(
     for outgoing, type_data, detection in results:
         data.append({
             "outgoing_id": outgoing.outgoing_id,
+            "type_id": type_data.type_id,
             "type": type_data.name,
             "quantity": outgoing.quantity,
             "method": outgoing.method,
