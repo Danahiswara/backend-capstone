@@ -10,7 +10,9 @@ from app.services.admin_service import (
     create_type,
     update_type,
     get_types,
-    delete_type
+    delete_type,
+    get_archived_types,
+    restore_type
 )
 from app.schemas.type import TypeCreate, TypeResponse, TypeUpdate
 from app.core.dependencies import get_current_admin
@@ -121,3 +123,28 @@ def delete_obat(
     admin = Depends(get_current_admin)
 ):
     return delete_type(db, type_id)
+
+
+@router.get("/types/archive")
+def archived_obat(
+    search: str = None,
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    admin = Depends(get_current_admin)
+):
+    return get_archived_types(
+        db=db,
+        search=search,
+        skip=skip,
+        limit=limit
+    )
+
+
+@router.put("/types/{type_id}/restore")
+def restore_obat(
+    type_id: int,
+    db: Session = Depends(get_db),
+    admin = Depends(get_current_admin)
+):
+    return restore_type(db, type_id)

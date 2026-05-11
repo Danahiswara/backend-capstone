@@ -437,7 +437,7 @@ def history_incoming(
     offset = (page - 1) * limit
 
     query = db.query(IncomingLog, Type)\
-        .join(Type, Type.type_id == IncomingLog.type_id)
+        .outerjoin(Type, Type.type_id == IncomingLog.type_id)
 
     # filter tanggal
     if year and month:
@@ -485,7 +485,7 @@ def history_outgoing(
     offset = (page - 1) * limit
 
     query = db.query(OutgoingLog, Type, Detection)\
-        .join(Type, Type.type_id == OutgoingLog.type_id)\
+        .outerjoin(Type, Type.type_id == OutgoingLog.type_id)\
         .outerjoin(Detection, Detection.detection_id == OutgoingLog.detection_id)
 
     # filter tanggal

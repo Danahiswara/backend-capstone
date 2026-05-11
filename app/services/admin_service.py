@@ -43,11 +43,31 @@ def create_type(
     distributor: str = None,
     total_items: int = 0
 ):
-    # optional: cek duplikat nama
-    existing = db.query(Type).filter(Type.name == name).first()
-    if existing:
+
+    existing = db.query(Type).filter(
+        Type.name == name
+    ).first()
+
+    # SUDAH ADA & NONAKTIF
+    if existing and existing.is_active == False:
+
+        existing.is_active = True
+
+        # optional update data terbaru
+        existing.komposisi = komposisi
+        existing.farmasi = farmasi
+        existing.distributor = distributor
+
+        db.commit()
+        db.refresh(existing)
+
+        return existing
+
+    # SUDAH ADA & AKTIF
+    if existing and existing.is_active == True:
         raise HTTPException(400, "Obat already exists")
 
+    # CREATE BARU
     new_type = Type(
         name=name,
         komposisi=komposisi,
@@ -58,6 +78,7 @@ def create_type(
     )
 
     db.add(new_type)
+
     db.commit()
     db.refresh(new_type)
 
@@ -105,6 +126,45 @@ def delete_type(db: Session, type_id: int):
     db.commit()
 
     return {"message": "Obat deleted successfully"}
+
+def get_archived_types(
+    db: Session,
+    search: str = None,
+    skip: int = 0,
+    limit: int = 20
+):
+    query = db.query(Type).filter(Type.is_active == False)
+
+    if search:
+        query = query.filter(
+            Type.name.ilike(f"%{search}%")
+        )
+
+    total = query.count()
+
+    data = query.order_by(Type.name.asc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+
+    return {
+        "total": total,
+        "data": data
+    }
+
+def restore_type(db: Session, type_id: int):
+    type_data = db.query(Type).filter(
+        Type.type_id == type_id
+    ).first()
+
+    if not type_data:
+        raise HTTPException(404, "Obat not found")
+
+    type_data.is_active = True
+
+    db.commit()
+
+    return {"message": "Obat restored successfully"}
 
 def get_pending_users(db: Session):
     return db.query(User).filter(User.is_approved == False).all()
