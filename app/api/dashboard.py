@@ -19,7 +19,9 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 @router.get("/stock")
 def get_stock(db: Session = Depends(get_db)):
-    types = db.query(Type).all()
+    types = db.query(Type).filter(
+        Type.is_active == True
+        ).all()
 
     return [
         {
