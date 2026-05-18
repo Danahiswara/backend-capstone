@@ -399,7 +399,7 @@ def history_incoming(
 
     # SEARCH
     if search:
-        query - query.filter(
+        query = query.filter(
             Type.name.ilike(f"%{search}%")
         )
 
