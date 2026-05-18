@@ -269,34 +269,6 @@ def type_detail(
         "distributor": data.distributor
     }
 
-# @router.get("/monthly")
-# def get_monthly_summary(
-#     db: Session = Depends(get_db),
-#     _ = Depends(get_current_user)
-# ):
-#     results = db.query(
-#         MonthlySummary.year,
-#         MonthlySummary.month,
-#         func.sum(MonthlySummary.total_incoming),
-#         func.sum(MonthlySummary.total_outgoing)
-#     ).group_by(
-#         MonthlySummary.year,
-#         MonthlySummary.month
-#     ).order_by(
-#         MonthlySummary.year,
-#         MonthlySummary.month
-#     ).all()
-
-#     return [
-#         {
-#             "year": y,
-#             "month": m,
-#             "total_incoming": int(i or 0),
-#             "total_outgoing": int(o or 0)
-#         }
-#         for y, m, i, o in results
-#     ]
-
 @router.get("/monthly-hybrid")
 def get_monthly_hybrid(
     db: Session = Depends(get_db),
@@ -399,40 +371,13 @@ def get_monthly_hybrid(
 
     return list(data_map.values())
 
-# @router.get("/monthly-by-type")
-# def get_monthly_by_type(
-#     db: Session = Depends(get_db),
-#     _ = Depends(get_current_user)
-# ):
-#     results = db.query(
-#         MonthlySummary.year,
-#         MonthlySummary.month,
-#         Type.name,
-#         MonthlySummary.total_incoming,
-#         MonthlySummary.total_outgoing
-#     ).join(Type, Type.type_id == MonthlySummary.type_id)\
-#      .order_by(
-#         MonthlySummary.year,
-#         MonthlySummary.month
-#      ).all()
-
-#     return [
-#         {
-#             "year": r.year,
-#             "month": r.month,
-#             "type": r.name,
-#             "incoming": int(r.total_incoming),
-#             "outgoing": int(r.total_outgoing)
-#         }
-#         for r in results
-#     ]
-
 @router.get("/history/incoming")
 def history_incoming(
     page: int = Query(1, ge=1),
     limit: int = Query(10, le=100),
     year: int = Query(None),
     month: int = Query(None),
+    sort_by: str = Query("latest"),
     db: Session = Depends(get_db),
     _ = Depends(get_current_user)
 ):
@@ -441,7 +386,7 @@ def history_incoming(
     query = db.query(IncomingLog, Type)\
         .outerjoin(Type, Type.type_id == IncomingLog.type_id)
 
-    # filter tanggal
+    # FILTER TANGGAL
     if year and month:
         start_date = datetime(year, month, 1)
         end_date = datetime(year + (month // 12), (month % 12) + 1, 1)
@@ -451,19 +396,36 @@ def history_incoming(
             IncomingLog.created_at < end_date
         )
 
+    # SORTING
+    if sort_by == "latest":
+        query = query.order_by(IncomingLog.created_at.desc())
+
+    elif sort_by == "oldest":
+        query = query.order_by(IncomingLog.created_at.asc())
+
+    elif sort_by == "name_asc":
+        query = query.order_by(Type.name.asc())
+
+    elif sort_by == "name_desc":
+        query = query.order_by(Type.name.desc())
+
+    elif sort_by == "qty_high":
+        query = query.order_by(IncomingLog.quantity.desc())
+
+    elif sort_by == "qty_low":
+        query = query.order_by(IncomingLog.quantity.asc())
+
     total = query.count()
 
-    results = query.order_by(
-        IncomingLog.created_at.desc()
-    ).offset(offset).limit(limit).all()
+    results = query.offset(offset).limit(limit).all()
 
     data = []
 
     for incoming, type_data in results:
         data.append({
             "incoming_id": incoming.incoming_id,
-            "type_id": type_data.type_id,
-            "type": type_data.name,
+            "type_id": incoming.type_id,
+            "type": type_data.name if type_data else "Deleted Type",
             "quantity": incoming.quantity,
             "created_at": incoming.created_at
         })
@@ -481,6 +443,8 @@ def history_outgoing(
     limit: int = Query(10, le=100),
     year: int = Query(None),
     month: int = Query(None),
+    sort_by: str = Query("latest"),
+    method: str = Query(None),
     db: Session = Depends(get_db),
     _ = Depends(get_current_user)
 ):
@@ -490,7 +454,7 @@ def history_outgoing(
         .outerjoin(Type, Type.type_id == OutgoingLog.type_id)\
         .outerjoin(Detection, Detection.detection_id == OutgoingLog.detection_id)
 
-    # filter tanggal
+    # FILTER TANGGAL
     if year and month:
         start_date = datetime(year, month, 1)
         end_date = datetime(year + (month // 12), (month % 12) + 1, 1)
@@ -500,24 +464,47 @@ def history_outgoing(
             OutgoingLog.created_at < end_date
         )
 
+    # FILTER METHOD
+    if method:
+        query = query.filter(OutgoingLog.method == method)
+
+    # SORTING
+    if sort_by == "latest":
+        query = query.order_by(OutgoingLog.created_at.desc())
+
+    elif sort_by == "oldest":
+        query = query.order_by(OutgoingLog.created_at.asc())
+
+    elif sort_by == "name_asc":
+        query = query.order_by(Type.name.asc())
+
+    elif sort_by == "name_desc":
+        query = query.order_by(Type.name.desc())
+
+    elif sort_by == "qty_high":
+        query = query.order_by(OutgoingLog.quantity.desc())
+
+    elif sort_by == "qty_low":
+        query = query.order_by(OutgoingLog.quantity.asc())
+
     total = query.count()
 
-    results = query.order_by(
-        OutgoingLog.created_at.desc()
-    ).offset(offset).limit(limit).all()
+    results = query.offset(offset).limit(limit).all()
 
     data = []
 
     for outgoing, type_data, detection in results:
         data.append({
             "outgoing_id": outgoing.outgoing_id,
-            "type_id": type_data.type_id,
-            "type": type_data.name,
+            "type_id": outgoing.type_id,
+            "type": type_data.name if type_data else "Deleted Type",
             "quantity": outgoing.quantity,
             "method": outgoing.method,
             "image": (
-                detection.mask_path if outgoing.method == "ai" and detection
-                else None),
+                detection.mask_path
+                if outgoing.method == "ai" and detection
+                else None
+            ),
             "created_at": outgoing.created_at
         })
 
