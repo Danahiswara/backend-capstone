@@ -378,6 +378,7 @@ def history_incoming(
     year: int = Query(None),
     month: int = Query(None),
     sort_by: str = Query("latest"),
+    search: str = Query(None),
     db: Session = Depends(get_db),
     _ = Depends(get_current_user)
 ):
@@ -394,6 +395,12 @@ def history_incoming(
         query = query.filter(
             IncomingLog.created_at >= start_date,
             IncomingLog.created_at < end_date
+        )
+
+    # SEARCH
+    if search:
+        query - query.filter(
+            Type.name.ilike(f"%{search}%")
         )
 
     # SORTING
@@ -444,6 +451,7 @@ def history_outgoing(
     year: int = Query(None),
     month: int = Query(None),
     sort_by: str = Query("latest"),
+    search: str = Query(None),
     method: str = Query(None),
     db: Session = Depends(get_db),
     _ = Depends(get_current_user)
@@ -462,6 +470,12 @@ def history_outgoing(
         query = query.filter(
             OutgoingLog.created_at >= start_date,
             OutgoingLog.created_at < end_date
+        )
+
+    # SEARCH
+    if search:
+        query = query.filter(
+            Type.name.ilike(f"%{search}%")
         )
 
     # FILTER METHOD
