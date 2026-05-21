@@ -28,7 +28,7 @@ def register_user(db: Session, name: str, email: str, password: str):
     }
 
 
-def login_user(db: Session, email: str, password: str):
+def login_user(db: Session, identifier: str, password: str):
     identifier = identifier.strip()
     user = db.query(User).filter(or_(
         User.email == identifier.lower(),
