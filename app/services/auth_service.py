@@ -1,9 +1,12 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from fastapi import HTTPException
 from app.models.user import User
 from app.core.security import hash_password, verify_password, create_access_token
 
 def register_user(db: Session, name: str, email: str, password: str):
+    email = email.lower().strip()
+    name = name.strip()
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -13,7 +16,7 @@ def register_user(db: Session, name: str, email: str, password: str):
         email=email,
         password=hash_password(password),
         role="petugas",
-        is_approved="False"
+        is_approved=False
     )
 
     db.add(new_user)
@@ -26,10 +29,13 @@ def register_user(db: Session, name: str, email: str, password: str):
 
 
 def login_user(db: Session, email: str, password: str):
-    user = db.query(User).filter(User.email == email).first()
+    identifier = identifier.strip()
+    user = db.query(User).filter(or_(
+        User.email == identifier.lower(),
+        User.name == identifier)).first()
 
     if not user or not verify_password(password, user.password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid name/email or password")
     
     if user.role=="petugas"and not user.is_approved:
         raise HTTPException(status_code=403, detail="Account not approved by admin")
