@@ -11,14 +11,23 @@ class RegisterRequest(BaseModel):
     def validate_name(cls, value):
         value = value.strip()
 
-        if len(value) < 3 :
-            raise ValueError("Name minimum 3 character")
+        if len(value) < 4 :
+            raise ValueError("Name minimum 4 character")
         
-        if len(value) > 50 :
-            raise ValueError("Name maximum 50 characters")
+        if len(value) > 16 :
+            raise ValueError("Name maximum 16 characters")
         
-        if not re.match(r"^[A-Za-z\s\.]+$", value):
-            raise ValueError("Name can only contain letters, spaces, and dots")
+        if " " in value:
+            raise ValueError("Name cannot contain space")
+        
+        if not re.search(r"[A-Za-z]", value):
+            raise ValueError("Name must contain at least 1 letter")
+        
+        if not re.search(r"\d", value):
+            raise ValueError("Name must contain at least 1 number")
+        
+        if not re.match(r"^[A-Za-z0-9._]+$", value):
+            raise ValueError("Name can only contain letters, number, dots, and underscore")
         
         return value
     

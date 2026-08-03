@@ -11,6 +11,7 @@ from app.api import dashboard
 from app.api import outgoing
 from app.api import admin
 from app.api import cron
+from app.api import mock_predict
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -92,3 +93,8 @@ app.include_router(admin.router)
 # Cron
 # =========================
 app.include_router(cron.router)
+
+# =========================
+# Mock Predict (Testing/Skripsi — bukan endpoint produksi)
+# =========================
+app.include_router(mock_predict.router)
