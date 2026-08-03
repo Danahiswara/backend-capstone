@@ -5,7 +5,7 @@ from app.utils.supabase_upload import upload_mask_image
 
 
 def detect_objects(image_url: str):
-    endpoint = f"{settings.AI_SERVICE_URL}/mock-predict/predict"
+    endpoint = f"{settings.AI_SERVICE_URL}/predict"
 
     # =========================
     # DOWNLOAD IMAGE
