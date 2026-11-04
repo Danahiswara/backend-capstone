@@ -23,7 +23,7 @@ app = FastAPI(
 # =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # nanti ganti ke domain frontend
+    allow_origins=["https://irshine-capstone.vercel.app/"],  # nanti ganti ke domain frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
