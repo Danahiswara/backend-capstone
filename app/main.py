@@ -21,9 +21,14 @@ app = FastAPI(
 # =========================
 # CORS (Untuk frontend Vue)
 # =========================
+origins = [
+    "https://irshine-capstone.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://irshine-capstone.vercel.app/"],  # nanti ganti ke domain frontend
+    allow_origins=origins,  # nanti ganti ke domain frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
